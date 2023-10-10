@@ -10,3 +10,4 @@ dependencies = [
 ]
 
 [tool.setuptools.packages.find]
+where = ['mplnet-cloud']
