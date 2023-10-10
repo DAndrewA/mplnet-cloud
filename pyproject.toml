@@ -1,0 +1,12 @@
+[build-system]
+requires = ['setuptools']
+build-backend = 'setuptools.build_meta'
+
+[project]
+name = 'mplnet_cloud'
+version = '0.0.1'
+dependencies = [
+    'numpy'
+]
+
+[tool.setuptools.packages.find]
