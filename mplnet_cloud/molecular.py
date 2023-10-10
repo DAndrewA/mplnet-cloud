@@ -52,8 +52,12 @@ def calculate_rayleigh_transmission_squared(P,T, z, wavelength=532e-9):
     # start by calculating the rayleigh "extinction" (absorption) coefficient.
     alpha = (9.807e-23 * 273 / 1013 / np.power(100,4.0117)) / np.power(wavelength, 4.0117) * (P/T)
 
-    # the next step is to integrate the extinction coefficient up to the desired altitudes, giving us the optical depth, tau. We will designate tau(z=0)=0
-    dz = np.diff([0,*z])
+    print(np.power(wavelength, 4.0117))
+    print(P)
+    print(T)
+
+    # the next step is to integrate the extinction coefficient up to the desired altitudes, giving us the optical depth, tau. We will designate tau(z=z0)=0
+    dz = np.diff([z[0],*z])
     tau = np.cumsum(dz*alpha)
 
     # use the optical depth to calculate the two-way transmission
