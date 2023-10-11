@@ -42,18 +42,64 @@ def GCDM(NRB, dNRB, beta_m, z, kappa):
 
     OUTPUTS:
         cloud_mask : np.ndarray
-            (n,m) numpy array containing 1s where clouds are present and 0s where clouds are not present.
+            (n,m) numpy array containing 1s where clouds are present and 0s where clouds are not present. For apparent cloud tops (i.e. at the noise altitude), the value 2 is used
     '''
 
     CR = NRB / beta_m
-
-    # need to ensure differentiation can be done once, rather than once per profile. Will greatly speed up process...
-    dCR = np.vectorize(differentiate_lagrange)(z, CR)
+    z_noise_ind = calculate_noise_height_index(NRB,dNRB)
 
 
+    cloud_mask = np.zeros_like(NRB, dtype=int)
+    # the following steps can be performed to each vertical profile individually
+    for profile, cm_prof, zni in zip(CR, cloud_mask, z_noise_ind):
+        dCR = differentiate_lagrange(z, profile)
+        # determine the gradient thresholds for cloud presence
+        dCR_mean = np.mean(dCR[:zni - 1]) # zni-1 used because dCR smaller than profile 
+        a_max = kappa * dCR_mean
+        a_min = dCR_mean - a_max
+
+        # from bottom to top of the profile
+        inCloud = False
+        cloud_true_top = False
+        for i,val in enumerate(dCR[:zni-1]):
+            if not inCloud and val > a_max:
+                inCloud = True
+                cloud_true_top = False
+                cm_prof[i] = 1
+            if inCloud:
+                cm_prof[i+1] = 1 # accounts for the reduced length of dCR, sets the current bit as 1. Allows for cloud tops to be included...
+                if val < a_min:
+                    cloud_true_top = True
+                if cloud_true_top and val > a_min: 
+                    # in this instance we must have reached a cloud top
+                    inCloud = False
+        # once we've reached the top of the "above-noise" profile if we're still in a cloud it must be an apparent cloud top...
+        if inCloud:
+            cm_prof[zni-1] = 2
+        
+    return cloud_mask
 
 
+def calculate_noise_height_index(NRB, dNRB):
+    '''Function to calculate the index of the noise height for each vertical profile. In this case, the noise height is defined as the first vertical bin in which the uncertainty dNRB exceeds half the NRB value.
+    
+    INPUTS:
+        NRB : np.ndarray
+            (n,m) the normalised backscatter for which the noise altitude is being found.
+            
+        dNRB: np.ndarray
+            (n,) the uncertainty in the NRB measurements in each of the n vertical profiles.
 
+    OUTPUTS:
+        z_noise_ind : np.ndarray
+            (n,) indices for the first bin in each vertical profile that is at or exceeds the noise altitude threshold. The actual noise altitude can be obtained by taking z[z_noise_ind].
+    '''
+    # firstly, calculate where all the pixels where the noise exceeds the threshold
+    noise_mask = NRB <= (2*dNRB)
+    # by taking the cumulative sum, values below the noise altitude will have 0, whereas those above will be 1 or greater.
+    cs_noise_mask = np.cumsum(noise_mask, dim=1)
+    z_noise_ind = np.sum( (cs_noise_mask == 0) , axis=1 )
+    return z_noise_ind
 
 
 def differentiate_lagrange(x,f):
