@@ -55,6 +55,11 @@ def UCDM(NRB, dNRB, beta_m, dbeta_m, epsilon, z_n, dz_ni, phi, kappa):
             Value used to discriminate between valid cloud bases and non-cloud-bases.
 
     OUTPUTS:
+        cloud_mask : np.ndarray
+            (n,m) numpy array conatining 1s where clouds are detected and 0s for cloud-free regions
+
+        z_n : np.ndarray
+            (n,) numpy array containing the index used for the start of the clear-air calibration. The value is left unchanged from the input if no calibration was done in the UCDM.
 
     '''
     (n,m) = NRB.shape
@@ -105,7 +110,7 @@ def UCDM(NRB, dNRB, beta_m, dbeta_m, epsilon, z_n, dz_ni, phi, kappa):
     for j, (bases, pYi, pPAB, pdPAB) in enumerate(zip(possible_bases, Y_i, PAB, dPAB)):
         cloud_mask[j,:] = determine_cloud_boundaries(bases, pYi, pPAB, pdPAB, phi, kappa)
 
-
+    return cloud_mask, z_n
 
 
 def calculate_C_fstar(C_star, dC_star, N_i, z_ni, dz_ni):
