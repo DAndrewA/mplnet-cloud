@@ -28,18 +28,19 @@ def UCDM(NRB, dNRB, beta_m, dbeta_m, epsilon, z_n, dz_ni, phi, kappa):
 
     INPUTS:
         NRB : np.ndarray
-            (n,m)
+            (n,m) numpy array containing the NRB data for the lidar
 
         dNRB : np.ndarray
-            (n,m)
+            (n,m) numpy array containing the uncertainty of the NRB values. Note, this is dependant on both time and height.
 
         beta_m : np.ndarray
-            (m,)
+            (m,) numpy array containing the attenuated molecular backscatter coefficient (including molecular transmission).
 
         dbeta_m : np.ndarray
-            (m,)
+            (m,) uncertainty in the attenuated molecular backscatter.
 
         epsilon : float
+            Threshold value that affects the number of bins required for the clean-air calibration.
 
         z_n : np.ndarray
             (n,) array of indices for thw noise altitude
@@ -101,7 +102,7 @@ def UCDM(NRB, dNRB, beta_m, dbeta_m, epsilon, z_n, dz_ni, phi, kappa):
 
     cloud_mask = np.zeros_like(NRB, dtype=bool)
     # for each profile, perform the itterative process of determining base heights, and cloud top heights
-    for j, (bases, pYi, pPAB, pdPAB) in enumerate(zip(possible_bases, pYi, PAB, dPAB)):
+    for j, (bases, pYi, pPAB, pdPAB) in enumerate(zip(possible_bases, Y_i, PAB, dPAB)):
         cloud_mask[j,:] = determine_cloud_boundaries(bases, pYi, pPAB, pdPAB, phi, kappa)
 
 
