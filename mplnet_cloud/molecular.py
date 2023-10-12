@@ -6,7 +6,7 @@ Script containing functions to handle the molecular backscatter and transmission
 
 import numpy as np
 
-def calculate_rayleigh_backscatter(P, T, wavelength=532e-9):
+def calculate_rayleigh_backscatter(P, T, dP, dT, wavelength=532e-9):
     '''Function to calculate the rayleigh backscatter coefficient, as given in Resonance Fluorescence Lidar for Measurements of the Middle and Upper Atmosphere (Chu and Papen), eq5.10
     
     INPUTS:
@@ -16,6 +16,12 @@ def calculate_rayleigh_backscatter(P, T, wavelength=532e-9):
         T : np.ndarray (units=K)
             (m,) numpy array containing the temperature values corresponding to the pressure values in P. Given in units of K.
 
+        dP : float, np.ndarray
+            float or (m,) array of uncertainty values for the pressure measurements.
+
+        dT : float, np.ndarray
+            float or (m,) array of uncertainties in the temperature measurements.
+
         wavelength : float (units=m)
             Value of the laser wavelength at which the backscatter coefficient is to be calculated. Given in units of meters, the default value is 532 nm.
 
@@ -24,10 +30,11 @@ def calculate_rayleigh_backscatter(P, T, wavelength=532e-9):
             (m,) numpy array containing the rayleigh backscatter coefficients for the values of T and P provided. In units of per-meter per-steradian. 
     '''
     beta_m = (2.938e-32) / np.power(wavelength, 4.0117) * (P/T)
-    return beta_m
+    dbeta_m = beta_m * (dT/T + dP/P)
+    return beta_m, dbeta_m
 
 
-def calculate_rayleigh_transmission_squared(P,T, z, wavelength=532e-9):
+def calculate_rayleigh_transmission_squared(P,T, z, dP, dT, wavelength=532e-9):
     '''Function to caluclate the rayleigh two-way transmission by approximating the extinction coefficient as the total rayleigh volume scattering coefficient (i.e. not considering atmospheric absorption).
     
     This is given in Chu and Papen eq.5.9, originally cited in Cerny and Sechrist (1980).
@@ -41,6 +48,12 @@ def calculate_rayleigh_transmission_squared(P,T, z, wavelength=532e-9):
 
         z : np.ndarray (units=m)
             (m,) numpy array containing the height values at which the pressures and temperatures occur.
+
+        dP : float, np.ndarray
+            float or (m,) array of uncertainty values for the pressure measurements.
+
+        dT : float, np.ndarray
+            float or (m,) array of uncertainties in the temperature measurements.
             
         wavelength : float (units=m)
             Wavelength of the laser light that is being transmitted. Given in units of meters, the default value is 532 nm.
@@ -50,7 +63,8 @@ def calculate_rayleigh_transmission_squared(P,T, z, wavelength=532e-9):
             (m,) numpy array containing the transmission values for the height values.
     '''
     # start by calculating the rayleigh "extinction" (absorption) coefficient.
-    alpha = (9.807e-23 * 273 / 1013 / np.power(100,4.0117)) / np.power(wavelength, 4.0117) * (P/T)
+    gamma = (9.807e-23 * 273 / 1013 / np.power(100,4.0117)) / np.power(wavelength, 4.0117)
+    alpha = gamma * (P/T)
 
     print(np.power(wavelength, 4.0117))
     print(P)
@@ -62,4 +76,5 @@ def calculate_rayleigh_transmission_squared(P,T, z, wavelength=532e-9):
 
     # use the optical depth to calculate the two-way transmission
     trans2 = np.exp(-2*tau)
-    return trans2
+    dtrans2 = 2*tau * ( np.exp(-2*gamma*dz/T)*dP + np.exp(2*gamma*dz*P / np.power(T,2))*dT )
+    return trans2, dtrans2
