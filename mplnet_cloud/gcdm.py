@@ -7,6 +7,7 @@ Overview of MPLNET Version 3 Cloud Detection; Lewis, Campbell et al (2016)
 
 import numpy as np
 from scipy.interpolate import lagrange
+from tqdm import tqdm
 
 
 def GCDM(NRB, dNRB, beta_m, z, kappa):
@@ -51,17 +52,19 @@ def GCDM(NRB, dNRB, beta_m, z, kappa):
 
     cloud_mask = np.zeros_like(NRB, dtype=int)
     # the following steps can be performed to each vertical profile individually
-    for profile, cm_prof, zni in zip(CR, cloud_mask, z_noise_ind):
-        dCR = differentiate_lagrange(z, profile)
+
+    dCR = differentiate_lagrange_algebraic(z,CR)
+    for pdCR, cm_prof, zni in tqdm(zip(dCR, cloud_mask, z_noise_ind)):
+        #dCR = differentiate_lagrange(z, profile)
         # determine the gradient thresholds for cloud presence
-        dCR_mean = np.mean(dCR[:zni - 1]) # zni-1 used because dCR smaller than profile 
+        dCR_mean = np.mean(pdCR[:zni - 1]) # zni-1 used because dCR smaller than profile 
         a_max = kappa * dCR_mean
         a_min = dCR_mean - a_max
 
         # from bottom to top of the profile
         inCloud = False
         cloud_true_top = False
-        for i,val in enumerate(dCR[:zni-1]):
+        for i,val in enumerate(pdCR[:zni-1]):
             if not inCloud and val > a_max:
                 inCloud = True
                 cloud_true_top = False
@@ -97,7 +100,7 @@ def calculate_noise_height_index(NRB, dNRB):
     # firstly, calculate where all the pixels where the noise exceeds the threshold
     noise_mask = NRB <= (2*dNRB)
     # by taking the cumulative sum, values below the noise altitude will have 0, whereas those above will be 1 or greater.
-    cs_noise_mask = np.cumsum(noise_mask, dim=1)
+    cs_noise_mask = np.cumsum(noise_mask, axis=1)
     z_noise_ind = np.sum( (cs_noise_mask == 0) , axis=1 )
     return z_noise_ind
 
@@ -121,4 +124,38 @@ def differentiate_lagrange(x,f):
         i = j+1
         poly = lagrange(x[i-1:i+2], f[i-1:i+2])
         diff_lag[j] = poly.deriv()(xi)
+    return diff_lag
+
+
+def differentiate_lagrange_algebraic(x,f):
+    '''Function to perform a differentiation of the quadratic lagrange polynomial for the function f(x).
+
+    The function is paralelised so it will differentiate w.r.t. the last axis of both x and f
+    
+    This is derived from the definition of the lagrange polynomial, and is evaluated at the given x values.
+    
+    INPUTS:
+        f : np.ndarray
+            (n,m) values of the function to be differentiated according to the locally defined quadratic lagrange polynomial
+            
+        x : np.ndarray
+            (...,m) x values for where the differential of the function is to be evaluated
+            
+    OUPUTS:
+        diff_lag : np.ndarray
+            (n,m-2) numpy array of the differentiated lagrange-polynomial values
+    '''
+    # for the naming convention q0 denotes quantity q at index n-1, q1 denotes quantity q at index n, and q2 denotes quantity q at index n+1
+    x0 = x[...,:-2]
+    f0 = f[...,:-2]
+    x1 = x[...,1:-1]
+    f1 = f[...,1:-1]
+    x2 = x[...,2:]
+    f2 = f[...,2:]
+
+    alpha0 = 1 / (x0 - x1) / (x0 - x2)
+    alpha1 = 1 / (x1 - x0) / (x1 - x2)
+    alpha2 = 1 / (x2 - x0) / (x2 - x1)
+
+    diff_lag = f0*alpha0*(x1-x2) + f1*alpha1*(2*x1 - (x0+x2)) + f2*alpha2*(x1-x0)
     return diff_lag
